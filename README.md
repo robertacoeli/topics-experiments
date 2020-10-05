@@ -1,29 +1,13 @@
-# README #
+# TopicsExperiments
 
-This README would normally document whatever steps are necessary to get your application up and running.
+Scripts for building the topic similarity graph.
 
-### What is this repository for? ###
+## Folders
 
-* Quick summary
-* Version
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
+* src
+    * **name_subfolder**: description
 
-### How do I get set up? ###
 
-* Summary of set up
-* Configuration
-* Dependencies
-* Database configuration
-* How to run tests
-* Deployment instructions
+## Files
 
-### Contribution guidelines ###
-
-* Writing tests
-* Code review
-* Other guidelines
-
-### Who do I talk to? ###
-
-* Repo owner or admin
-* Other community or team contact
+For the most part of the scripts, the "main" function is located at the end of the file, i.e., after the methods and class definitions. It contains the inputs and outputs, as well as it calls the function that executes the task for the script.
