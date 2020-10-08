@@ -1,3 +1,3 @@
-print("teste")
-c = list(range(0,10))
-print(c)
+import similarity_calculations as s
+
+a = s.testando()
