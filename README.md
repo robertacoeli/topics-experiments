@@ -5,7 +5,8 @@ Scripts for calculating similarity between topics and building the topic similar
 ## Folders
 
 * src
-    * **name_subfolder**: description
+    * **similarity_calculations**: basic functions to calculate similarity (Jaccard and Word Overlap) and to build the topic pairs matrix (to build the similarity graph).
+    * **01_calculate_similarity**: builds the topic similarity graph and saves auxiliary files to the output folder.
 
 
 ## Files
