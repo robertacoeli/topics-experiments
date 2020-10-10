@@ -6,11 +6,10 @@
     2) name of the topic similarity graph file
     3) threshold for the weight of the edges of the similarity graph: this threshold defines the mininum weight that will be considered to indicate that the grouped topics are similar, i.e., edges that have a weight < threshold will be removed (meaning that the pair of grouped topics are not similar)
 
-    output: output folder "similar_topics_criteria_<threshold>", which has the following files:
-    1)
-    2)
-    3)
-    An example of this output folder and its files are in the Google Drive folder (https://drive.google.com/drive/folders/17HGKIUlRcRMq3BuHtazAllTiaohBozg9?usp=sharing)
+    output: output folder "similar_topics_criteria_<threshold>_threshold", which has the following files:
+    1) "table.csv": this file has the "super" topic number and the months when it appears (marked by an X) 
+    2) "table_words.txt": this file has the "super topic", its words and its subset of original topics 
+    --> An example of this output folder and its files are in the Google Drive folder (https://drive.google.com/drive/folders/17HGKIUlRcRMq3BuHtazAllTiaohBozg9?usp=sharing)
 '''
 import os
 import argparse
@@ -28,8 +27,15 @@ current_time = time.strftime("%Y%m%d_%H%M%S")
 years = [2015, 2016] # years of the dataset
 months = list(range(1,13)) # months in the range [1,12], i.e., it goes from january of 2015 to december of 2016
 input_filename = "final_btm_model.twords" # topic words file name
-prefix_output_subfolder = "similar_topics_criteria_1-3_threshold" # name of the output folder
+prefix_output_subfolder = "similar_topics_criteria_{0}_threshold" # name of the output folder
 
+# period columns of the output file (each year/month is a column in the "table.csv" output file)
+period_column = ""
+for y in years:
+    for m in months:
+        period_column += ("%02d" % m) + "/" + str(y) + ";"
+
+# CLASS FOR THE CALCULATIONS
 class TopicsGrouping(BaseEstimator, RegressorMixin):
 
     # init function
@@ -98,7 +104,7 @@ class TopicsGrouping(BaseEstimator, RegressorMixin):
             words_set.update(self.topics_dict[c])
         return words_set
 
-    # find the position 
+    # find the column position to place the marker for the period of the topic occurrence in the output file
     def find_marker_position(self, topic_identifier):
         tid = topic_identifier.strip().split("_")
         if int(tid[0]) == min(years):
@@ -107,40 +113,38 @@ class TopicsGrouping(BaseEstimator, RegressorMixin):
             return int(tid[1]) + 12 - 1
 
     # write results to csv file
-    def write_to_csv(self, ccomponents, complement_name):
-        filepath = os.path.join(self.fname, "similar_topics_criteria")
+    def write_to_csv(self, ccomponents, threshold):
+
+        # creates the subfolder similar_topics_criteria_{0}_threshold
+        filepath = os.path.join(self.fname, prefix_output_subfolder.format(threshold))
         if not os.path.exists(filepath):
             os.makedirs(filepath)
 
         csvfile = open(os.path.join(filepath, "table.csv"), "w")
         wordsfile = open(os.path.join(filepath, "table_words.txt"), "w")
-        wordsfile2 = open(os.path.join(filepath, "table_words_index.csv"), "w")
-        period_column = ""
-        for y in years:
-            for m in months:
-                period_column += ("%02d" % m) + "/" + str(y) + ";"
-        csvfile.write("Topic Number;" + period_column +
-                      "Size of Subset of Topics\n") # 27 columns
-        wordsfile2.write("Topic Number;Topics Set;Words Set\n")
+
+        # header of the csv file
+        csvfile.write("Topic Number;" + period_column + "Size of Subset of Topics\n")
+
+        # write to files
         topic_number = 1
         for array_component in ccomponents:
             words_set = set()
             period_list = [' ' for _ in range(0,24)]
             for c in array_component:
                 position = self.find_marker_position(c)
-                period_list[position] = 'X'
-                words_set.update(self.topics_dict[c])
-            csvfile.write(("%03d" % topic_number) + ";" +
-                          (";".join(period_list)) + ";" +
-                          str(len(array_component)) + "\n")
+                period_list[position] = 'X' # marks the period of topic occurrence with an 'X'
+                words_set.update(self.topics_dict[c]) # set of words for the topic
+            
+            csvfile.write(("%03d" % topic_number) + ";" + (";".join(period_list)) + ";" + str(len(array_component)) + "\n")
             wordsfile.write("\n\n-------- TOPIC " + ("%03d" % topic_number) + " --------\n")
             wordsfile.write("Words: ")
             wordsfile.write(", ".join(words_set) + "\n")
             wordsfile.write("Subset of topics: ")
             wordsfile.write((", ".join(array_component)) + "\n")
-            wordsfile2.write(str(topic_number) + ";" + (", ".join(array_component)) + ";" +
-                             (" ".join(words_set)) + "\n")
             topic_number += 1
+
+        # close files
         csvfile.close()
         wordsfile.close()
 
@@ -180,14 +184,14 @@ class TopicsGrouping(BaseEstimator, RegressorMixin):
         print("Elapsed time: %f seconds" % (end - start))
 
         # write the results to a csv file
-        self.write_to_csv(ccomponents)
+        self.write_to_csv(ccomponents, threshold)
 
 ### MAIN
 if __name__ == "__main__":
     infolder = "/home/robertacoeli/Documents/Mestrado/resultados/topicos" # input folder (folder containing the subfolders of the months, which each contains the "final_btm_model.twords" file)
     graph_filename = "/home/robertacoeli/Documents/Mestrado/resultados/agregacao_topicos/graph_all_to_all_similarities.gml" # name of the topic similarity graph file
     num_topics = 10  # number of topics that were used in the study
-    threshold = 13.0 # the threshold for the similarity edges in the topic similarity graph
+    threshold = 13 # the threshold for the similarity edges in the topic similarity graph
 
     tg = TopicsGrouping(infolder, graph_filename, num_topics)
     tg.run(threshold)
