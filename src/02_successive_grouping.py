@@ -4,8 +4,13 @@
     inputs: 
     1) folder containing BTM top words for each month in the studied period. The folder of *each month* must contain the file "final_btm_model.twords" (example of the format of this file in https://drive.google.com/file/d/15F0G8bKNFQMBDYa2F7mAx8XDZc3fXypq/view?usp=sharing)
     2) name of the topic similarity graph file
+    3) threshold for the weight of the edges of the similarity graph: this threshold defines the mininum weight that will be considered to indicate that the grouped topics are similar, i.e., edges that have a weight < threshold will be removed (meaning that the pair of grouped topics are not similar)
 
-    output: text file containing the similarity between the topics. Example of output file: "general_measures.txt" in the Google Drive Folder (https://drive.google.com/drive/folders/17HGKIUlRcRMq3BuHtazAllTiaohBozg9?usp=sharing)
+    output: output folder "similar_topics_criteria_<threshold>", which has the following files:
+    1)
+    2)
+    3)
+    An example of this output folder and its files are in the Google Drive folder (https://drive.google.com/drive/folders/17HGKIUlRcRMq3BuHtazAllTiaohBozg9?usp=sharing)
 '''
 import os
 import argparse
@@ -22,7 +27,8 @@ current_time = time.strftime("%Y%m%d_%H%M%S")
 # if the period does not cover entire years, you must change the iteration functionality for the variables "years" and "months"
 years = [2015, 2016] # years of the dataset
 months = list(range(1,13)) # months in the range [1,12], i.e., it goes from january of 2015 to december of 2016
-input_filename = "final_btm_model.twords" # topic words file name 
+input_filename = "final_btm_model.twords" # topic words file name
+prefix_output_subfolder = "similar_topics_criteria_1-3_threshold" # name of the output folder
 
 class TopicsGrouping(BaseEstimator, RegressorMixin):
 
@@ -85,7 +91,14 @@ class TopicsGrouping(BaseEstimator, RegressorMixin):
         alphab_order = np.argsort(new_ccomponents)
         return np.array([sorted(c) for c in ccomponents])[alphab_order]
 
-    # 
+    # get the set of distinct words within a graph component
+    def find_component_words(self, item_component):
+        words_set = set()
+        for c in item_component:
+            words_set.update(self.topics_dict[c])
+        return words_set
+
+    # find the position 
     def find_marker_position(self, topic_identifier):
         tid = topic_identifier.strip().split("_")
         if int(tid[0]) == min(years):
@@ -93,85 +106,18 @@ class TopicsGrouping(BaseEstimator, RegressorMixin):
         else:
             return int(tid[1]) + 12 - 1
 
-    def find_component_words(self, item_component):
-        words_set = set()
-        for c in item_component:
-            words_set.update(self.topics_dict[c])
-        return words_set
-
-    def is_in_grouping_pair(self, grouping_pairs, v1, v2):
-        for i in range(0,len(grouping_pairs)):
-            if (v1 in grouping_pairs[i]) or (v2 in grouping_pairs[i]):
-                return i
-        return -1
-
-    def find_grouping_pairs(self, ccomponents, threshold):
-        grouping_pairs = []
-        tam_components = len(ccomponents)
-        for i in range(0, tam_components):
-            words_set_comp1 = self.find_component_words(ccomponents[i])
-            for j in range(i + 1, tam_components):
-                words_set_comp2 = self.find_component_words(ccomponents[j])
-                min_setsize = min([len(words_set_comp1), len(words_set_comp2)])
-                # print(len(words_set_comp1.intersection(words_set_comp2)))
-                if len(words_set_comp1.intersection(words_set_comp2)) >= (threshold * min_setsize):
-                    igp = self.is_in_grouping_pair(grouping_pairs, i, j)
-                    # print("MIN SET SIZE: " + str(min_setsize))
-                    if igp >= 0:
-                        grouping_pairs[igp].update([i,j])
-                    else:
-                        grouping_pairs.append({i, j})
-                    # print("analisando " + "i: " + str(i) + " j: " + str(j))
-                    # print(words_set_comp1)
-                    # print(words_set_comp2)
-                    # print(words_set_comp1.intersection(words_set_comp2))
-
-        return grouping_pairs
-
-    # agrupamento sucessivo de componentes
-    def successive_grouping(self, ccomponents, threshold):
-        grouping_pairs = self.find_grouping_pairs(ccomponents, threshold)
-        new_components = []
-        print(grouping_pairs)
-        # sys.exit(0)
-
-        while len(grouping_pairs) > 0:
-            new_components = []
-            all_paired = []
-            for gp in grouping_pairs:
-                nc = []
-                for item in gp:
-                    all_paired.append(item)
-                    nc += ccomponents[item]
-                new_components.append(nc)
-
-            for i in range(0, len(ccomponents)):
-                if i not in all_paired:
-                    new_components.append(ccomponents[i])
-            ccomponents = new_components
-
-            grouping_pairs = self.find_grouping_pairs(new_components, threshold)
-            print(grouping_pairs)
-
-        print(len(new_components))
-
-        if len(new_components) == 0:
-            return ccomponents
-        else:
-            return new_components
-
     # write results to csv file
     def write_to_csv(self, ccomponents, complement_name):
-        filepath = os.path.join(self.fname, self.subfolder, "similar_topics_criteria_" +
-                                complement_name)
+        filepath = os.path.join(self.fname, "similar_topics_criteria")
         if not os.path.exists(filepath):
             os.makedirs(filepath)
+
         csvfile = open(os.path.join(filepath, "table.csv"), "w")
         wordsfile = open(os.path.join(filepath, "table_words.txt"), "w")
         wordsfile2 = open(os.path.join(filepath, "table_words_index.csv"), "w")
         period_column = ""
-        for y in [2015,2016]:
-            for m in range(1,13):
+        for y in years:
+            for m in months:
                 period_column += ("%02d" % m) + "/" + str(y) + ";"
         csvfile.write("Topic Number;" + period_column +
                       "Size of Subset of Topics\n") # 27 columns
@@ -198,51 +144,50 @@ class TopicsGrouping(BaseEstimator, RegressorMixin):
         csvfile.close()
         wordsfile.close()
 
-    # get topics spreadsheet
-    def get_spreadsheet(self):
+    # get the file containing the topics that were grouped according to the threshold
+    def run(self, threshold):
         print("Analysing graph and getting topics spreadsheet...")
 
+        # Remove weights that have no mean
         start = time.time()
         print("Removing edges which weight is zero... ", end="")
         self.remove_zero_weights()
         end = time.time()
         print("Elapsed time: %f seconds" % (end - start))
+
+        # find the connected components of the graph after the removal of zero-weight edges
         start = end
+        print("Finding connected components in the graph...", end="")
         ccomponents = self.sorting_ccomponents(list(nx.connected_components(self.graph.to_undirected())))
         print("connected components (step 1): " + str(len(list(ccomponents))))
         print(self.graph.number_of_edges() / 2)
+        end = time.time()
+        print("Elapsed time: %f seconds" % (end - start))
 
-        # print("Removing edges which weight is smaller than the max one... ", end="")
-        # self.keep_only_max()
-        # end = time.time()
-        # print("Elapsed time: %f seconds" % (end - start))
-        # start = end
-        # ccomponents = self.sorting_ccomponents(list(nx.connected_components(self.graph.to_undirected())))
-        # print("connected components (step 2): " +
-        #       str(len(list(ccomponents))))
-        # print(self.graph.number_of_edges() / 2)
-
+        # remove all the edges of the graph which weight is smaller than the threshold
+        start = end
         print("Removing edges which weight is smaller than a threshold... ", end="")
         self.remove_below_threshold(13.0)
         end = time.time()
         print("Elapsed time: %f seconds" % (end - start))
+
+        # find the connected components after the removal of the edges: each component (group of topics) are the final super topics for that threshold
+        start = end
         ccomponents = self.sorting_ccomponents(list(nx.connected_components(self.graph.to_undirected())))
-        print("connected components (step 3): " +
-              str(len(list(ccomponents))))
+        print("connected components (step 2): " + str(len(list(ccomponents))))
         print(self.graph.number_of_edges() / 2)
+        end = time.time()
+        print("Elapsed time: %f seconds" % (end - start))
 
-        self.write_to_csv(ccomponents, "simple_edge_removal")
-
-        # tc = 0.8
-        # ccomponents = self.successive_grouping(ccomponents, tc)
-
-        # self.write_to_csv(ccomponents, "successive_grouping_" + str(int(tc * 100)) +
-        #                   "_1-3_threshold_035")
+        # write the results to a csv file
+        self.write_to_csv(ccomponents)
 
 ### MAIN
 if __name__ == "__main__":
     infolder = "/home/robertacoeli/Documents/Mestrado/resultados/topicos" # input folder (folder containing the subfolders of the months, which each contains the "final_btm_model.twords" file)
     graph_filename = "/home/robertacoeli/Documents/Mestrado/resultados/agregacao_topicos/graph_all_to_all_similarities.gml" # name of the topic similarity graph file
     num_topics = 10  # number of topics that were used in the study
-    tsp = TopicsGrouping(infolder, graph_filename, num_topics)
-    tsp.get_spreadsheet()
+    threshold = 13.0 # the threshold for the similarity edges in the topic similarity graph
+
+    tg = TopicsGrouping(infolder, graph_filename, num_topics)
+    tg.run(threshold)
